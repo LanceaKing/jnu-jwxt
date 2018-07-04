@@ -1,0 +1,32 @@
+{
+    "login": {
+        "txtYHBS": null,
+        "txtYHMM": null,
+        "txtFJM": null,
+        "btnLogin": "登    录"
+    },
+    "readme": {
+        "btnYes": "是(Yes)"
+    },
+    "search": {
+        "txtXf": null,
+        "txtKcmc": null,
+        "txtNj": null,
+        "txtKcbh": null,
+        "txtSkDz": null,
+        "txtPkbh": null,
+        "txtBzxx": null,
+        "txtZjjs": null,
+        "btnSearch": "查询"
+    },
+    "xk": {
+        "txtFkcbh": null,
+        "btnQr": "确认选课"
+    },
+    "xkcenter": {
+        "btnKkLb": "开课列表",
+        "btnWdXk": "我的选课",
+        "btnExport": "导出课程表",
+        "btnExport0": "导出考试安排表"
+    }
+}
