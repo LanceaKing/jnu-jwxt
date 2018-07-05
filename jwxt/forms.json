@@ -5,9 +5,6 @@
         "txtFJM": null,
         "btnLogin": "登    录"
     },
-    "readme": {
-        "btnYes": "是(Yes)"
-    },
     "search": {
         "txtXf": null,
         "txtKcmc": null,
@@ -28,5 +25,8 @@
         "btnWdXk": "我的选课",
         "btnExport": "导出课程表",
         "btnExport0": "导出考试安排表"
+    },
+    "xkreadme": {
+        "btnYes": "是(Yes)"
     }
 }

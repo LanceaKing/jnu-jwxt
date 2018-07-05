@@ -1,115 +1,93 @@
 from urllib.parse import urlencode
-from bs4 import BeautifulSoup
-from jwxt.config import Config
-from copy import copy
-import requests
-import json
-import re
+from config import Config, FORM_DATA
+from jwxt.funcs import bsfilter, urlequal
 
-formdata = json.load(open(Config.FORM_DATA, 'rb'))
 
-class ViewState(object):
-    _data = {}
+class ViewState(dict):
+    url = action = None
+    form = None
 
-    def __init__(self, jwxt):
-        self.sess = jwxt
+    def __init__(self, session, response):
+        if self.url:
+            assert urlequal(self.url, response.url)
+        else:
+            self.url = response.url
+
+        self.session = session
+
+        dict.__init__(self)
+        self.update(ViewState.extract(response.text))
+        if self.form:
+            self.update(self.form)
+
+        for k, v in self.items():
+            self[k] = v or ''
 
     @staticmethod
-    def extract(html):
-        data = {}
-        BS = BeautifulSoup(html, 'html.parser')
-        for tag in BS.find_all('input', type='hidden'):
-            data[tag.get('name')] = tag.get('value')
-        return data
-
-    @staticmethod
-    def encode(d):
+    def urlencode(d):
         return urlencode(d, encoding=Config.JWXT_ENCODING)
 
     @property
-    def data(self):
-        return self.encode(self._data)
-    
-    @data.setter
-    def data(self, D):
-        if isinstance(D, dict):
-            self._data = D
-        else:
-            raise TypeError('dict required.')
+    def urldata(self):
+        return ViewState.urlencode(self)
+
+    def submit(self, action=None):
+        action = action or self.action or self.url
+        assert action != None
+        return self.session.post(action, data=self.urldata)
+
+    @staticmethod
+    def extract(html):
+        rel = {}
+        tags = bsfilter(html, name='input',attrs={
+            'name': Config.VIEWSTATE_PATTERN,
+            'type': 'hidden'})
+        for tag in tags:
+            rel[tag.get('name')] = tag.get('value')
+        return rel
 
 
-
-class LoginVS(ViewState):
-    def __init__(self, jwxt):
-        super().__init__(jwxt)
-        self.url = self.sess.root
-        self._data = self.extract(self.sess.get(self.url).text)
+class JwxtLoginVS(ViewState):
+    url = Config.JWXT_URLS['root']
+    action = Config.JWXT_URLS['login']
+    form = FORM_DATA['login'].copy()
 
     def fill(self, username, password, validcode):
-        form = copy(formdata['login'])
-        form['txtYHBS'] = username
-        form['txtYHMM'] = password
-        form['txtFJM'] = validcode
-        self._data.update(form)
-
-class XKCenterVS(ViewState):
-    choice = 'btnKkLb'
-
-    def __init__(self, jwxt):
-        super().__init__(jwxt)
-        self.url = self.sess.root + Config.JWXT_XK
-        self._data = self.get_xk_form()
-
-    def get_xk_form(self):
-        rooturl = self.sess.root
-        menu = formdata['xkcenter']
-
-        resA = self.sess.get(rooturl + Config.JWXT_XK_README, allow_redirects=False)
-        if resA.status_code != 302:
-            dataB = self.extract(resA.text)
-            dataB.update(formdata['readme'])
-            resB = self.sess.post(rooturl + Config.JWXT_XK_README, data=self.encode(dataB))
-        else:
-            resB = self.sess.get(self.url)
-
-        dataB = self.extract(resB.text)
-        dataB.update({self.choice: menu[self.choice]})
-
-        resC = self.sess.post(self.url, data=self.encode(dataB))
-        dataC = self.extract(resC.text)
-        return dataC
+        self['txtYHBS'] = username
+        self['txtYHMM'] = password
+        self['txtFJM'] = validcode
 
 
-class SearchVS(XKCenterVS):
-    choice = 'btnKkLb'
+class JwxtSearchVS(ViewState):
+    url = Config.JWXT_URLS['xkcenter']
+    form = FORM_DATA['search'].copy()
 
     def fill(self, name='', class_number='', order_number='',
              teacher='', credit='', grade='', location='', comment=''):
-        form = copy(formdata['search'])
-        form['txtXf'] = credit
-        form['txtKcmc'] = name
-        form['txtNj'] = grade
-        form['txtKcbh'] = class_number
-        form['txtSkDz'] = location
-        form['txtPkbh'] = order_number
-        form['txtBzxx'] = comment
-        form['txtZjjs'] = teacher
-        self._data.update(form)
+        self['txtXf'] = credit
+        self['txtKcmc'] = name
+        self['txtNj'] = grade
+        self['txtKcbh'] = class_number
+        self['txtSkDz'] = location
+        self['txtPkbh'] = order_number
+        self['txtBzxx'] = comment
+        self['txtZjjs'] = teacher
 
 
-class Course(ViewState):
-    magic = ''
-    class_number = ''
-    order_number = ''
-    name = ''
+class JwxtXKCenterVS(ViewState):
+    url = Config.JWXT_URLS['xkcenter']
+    selection = FORM_DATA['xkcenter']
+    targets = {
+        JwxtSearchVS: 'btnKkLb'
+    }
 
-    def __repr__(self):
-        return '<Course name={} class_number={} order_number={}>'.format(
-            self.name, self.class_number, self.order_number)
+    def go(self, target):
+        assert target in self.targets
 
-    def select(self):
-        res = self.sess.post(self.sess.root + Config.JWXT_XK, data=self.data)
-        return re.search(Config.XK_MSG_PATTERN, res.text).group(1)
+        name = self.targets[target]
+        self[name] = self.selection[name]
 
-class CourseException(Exception):
-    pass
+        response = self.submit()
+
+        self.pop(name)
+        return target(self.session, response)
