@@ -4,25 +4,22 @@ from config import Config, FORM_DATA
 import re
 
 
-class XKCenter(object):
+class JwxtXKCenter(object):
+    url = ''
     session = None
     viewstate = None
     __already_readme = False
 
-    @property
-    def already_readme(self):
-        return self.__already_readme
-
     def __init__(self, session):
         assert session.is_logined
         self.session = session
-        xkcenter = self.pass_readme()
+        xkcenter = self.get_response()
         self.viewstate = JwxtXKCenterVS(session, xkcenter)
 
-    def pass_readme(self):
+    def get_response(self):
         if not self.__already_readme:
             readme_url = self.session.urls['xkreadme']
-            xkcenter_url = self.session.urls['xkcenter']
+            self.url = self.session.urls['xkcenter']
 
             readme = self.session.get(readme_url, allow_redirects=False)
             if readme.status_code != 302:
@@ -30,18 +27,30 @@ class XKCenter(object):
                 readmevs.update(FORM_DATA['xkreadme'])
                 xkcenter = readmevs.submit()
             else:
-                xkcenter = self.session.get(xkcenter_url)
+                xkcenter = self.session.get(self.url)
 
             self.__already_readme = True
             return xkcenter
         else:
-            return self.session.get(xkcenter_url)
+            return self.session.get(self.url)
 
     def search(self, **kwargs):
-        search = self.viewstate.go(JwxtSearchVS)
-        search.fill(**kwargs)
-        result = search.submit()
-        return SearchResult(self.session, result)
+        searchvs = self.viewstate.go(JwxtSearchVS)
+        searchvs.fill(**kwargs)
+        result = searchvs.submit()
+        return CourseJar(self.session, result)
+
+    @property
+    def already_readme(self):
+        return self.__already_readme
+
+    def __repr__(self):
+        return '<JwxtXKCenter session={}, already_readme={}, url={}>'.format(
+            repr(self.session),
+            repr(self.already_readme),
+            repr(self.url)
+        )
+
 
 class Course(ViewState):
     url = Config.JWXT_URLS['xkcenter']
@@ -50,25 +59,15 @@ class Course(ViewState):
     class_number = ''
     order_number = ''
 
-    def __init__(self, session, response):
-        if self.url:
-            assert urlequal(self.url, response.url)
-        else:
-            self.url = response.url
-
-        self.session = session
-
-        dict.__init__(self)
-        tags = bsfilter(response.text, name='input')
-        for i in tags:
-            self[i.get('name')] = i.get('value')
-        self.pop('btnReturnX')
-
-        if self.form:
-            self.update(self.form)
-
-        for k, v in self.items():
-            self[k] = v or ''
+    @staticmethod
+    def extract(html):
+        # all fields is in the course page, just take it
+        ret = {}
+        tags = bsfilter(html, name='input')
+        for tag in tags:
+            ret[tag.get('name')] = tag.get('value')
+        ret.pop('btnReturnX') # don't return
+        return ret
 
     def select(self):
         res = self.submit()
@@ -76,14 +75,17 @@ class Course(ViewState):
     
     @staticmethod
     def find_msg(html):
-        return re.search(Config.XK_MSG_PATTERN, html).group(1)
+        result = re.search(Config.XK_MSG_PATTERN, html)
+        return result and result.group(1)
 
     def __repr__(self):
-        return '<Course name={} class_number={} order_number={}>'.format(
-            self.name, self.class_number, self.order_number)
+        return 'Course(name={}, class_number={}, order_number={})'.format(
+            repr(self.name),
+            repr(self.class_number),
+            repr(self.order_number))
 
 
-class SearchResult(list):
+class CourseJar(list):
     def __init__(self, session, response):
         list.__init__(self)
         course_checker = ViewState(session, response)
@@ -109,4 +111,4 @@ class SearchResult(list):
             self.append(new_course)
 
     def __repr__(self):
-        return '<SearchResult%s>' % list.__repr__(self)
+        return '<CourseJar{}>'.format(list.__repr__(self))

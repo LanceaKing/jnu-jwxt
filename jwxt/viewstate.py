@@ -4,24 +4,25 @@ from jwxt.funcs import bsfilter, urlequal
 
 
 class ViewState(dict):
-    url = action = None
-    form = None
+    url = None
+    #action = None
+    form = {}
 
     def __init__(self, session, response):
+        self.session = session
         if self.url:
             assert urlequal(self.url, response.url)
         else:
             self.url = response.url
 
-        self.session = session
-
         dict.__init__(self)
-        self.update(ViewState.extract(response.text))
-        if self.form:
-            self.update(self.form)
 
-        for k, v in self.items():
-            self[k] = v or ''
+        self.update(self.extract(response.text))
+        if self.form:
+            self.form = self.form.copy()
+            for k, v in self.form.items():
+                self.form[k] = v or ''
+            self.update(self.form)
 
     @staticmethod
     def urlencode(d):
@@ -32,35 +33,42 @@ class ViewState(dict):
         return ViewState.urlencode(self)
 
     def submit(self, action=None):
-        action = action or self.action or self.url
+        action = action or self.url
         assert action != None
-        return self.session.post(action, data=self.urldata)
+        result = self.session.post(action, data=self.urldata)
+        assert result.ok
+        return result
 
     @staticmethod
     def extract(html):
-        rel = {}
+        ret = {}
         tags = bsfilter(html, name='input',attrs={
             'name': Config.VIEWSTATE_PATTERN,
             'type': 'hidden'})
         for tag in tags:
-            rel[tag.get('name')] = tag.get('value')
-        return rel
+            ret[tag.get('name')] = tag.get('value')
+        return ret
+
+    def __repr__(self):
+        return '<{} url={}, {}>'.format(
+            type(self).__name__,
+            repr(self.url),
+            dict.__repr__(self))
 
 
 class JwxtLoginVS(ViewState):
-    url = Config.JWXT_URLS['root']
-    action = Config.JWXT_URLS['login']
-    form = FORM_DATA['login'].copy()
+    url = Config.JWXT_URLS['login']
+    form = FORM_DATA['login']
 
-    def fill(self, username, password, validcode):
-        self['txtYHBS'] = username
+    def fill(self, id, password, validcode):
+        self['txtYHBS'] = id
         self['txtYHMM'] = password
         self['txtFJM'] = validcode
 
 
 class JwxtSearchVS(ViewState):
     url = Config.JWXT_URLS['xkcenter']
-    form = FORM_DATA['search'].copy()
+    form = FORM_DATA['search']
 
     def fill(self, name='', class_number='', order_number='',
              teacher='', credit='', grade='', location='', comment=''):
@@ -89,5 +97,5 @@ class JwxtXKCenterVS(ViewState):
 
         response = self.submit()
 
-        self.pop(name)
+        del self[name]
         return target(self.session, response)

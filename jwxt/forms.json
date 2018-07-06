@@ -5,6 +5,9 @@
         "txtFJM": null,
         "btnLogin": "登    录"
     },
+    "logout": {
+        "header$btnTC": "退出"
+    },
     "search": {
         "txtXf": null,
         "txtKcmc": null,
@@ -15,10 +18,6 @@
         "txtBzxx": null,
         "txtZjjs": null,
         "btnSearch": "查询"
-    },
-    "xk": {
-        "txtFkcbh": null,
-        "btnQr": "确认选课"
     },
     "xkcenter": {
         "btnKkLb": "开课列表",
