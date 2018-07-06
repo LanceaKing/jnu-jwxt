@@ -1,5 +1,6 @@
 from jwxt.viewstate import ViewState, JwxtXKCenterVS, JwxtSearchVS
-from jwxt.funcs import bsfilter, urlequal
+from jwxt.funcs import bsfilter, urlequal, find_msg
+from jwxt.errors import CourseError
 from config import Config, FORM_DATA
 import re
 
@@ -8,16 +9,16 @@ class JwxtXKCenter(object):
     url = ''
     session = None
     viewstate = None
-    __already_readme = False
+    __readmed = False
 
     def __init__(self, session):
-        assert session.is_logined
+        assert session.logined
         self.session = session
         xkcenter = self.get_response()
         self.viewstate = JwxtXKCenterVS(session, xkcenter)
 
     def get_response(self):
-        if not self.__already_readme:
+        if not self.__readmed:
             readme_url = self.session.urls['xkreadme']
             self.url = self.session.urls['xkcenter']
 
@@ -29,7 +30,7 @@ class JwxtXKCenter(object):
             else:
                 xkcenter = self.session.get(self.url)
 
-            self.__already_readme = True
+            self.__readmed = True
             return xkcenter
         else:
             return self.session.get(self.url)
@@ -41,13 +42,13 @@ class JwxtXKCenter(object):
         return CourseJar(self.session, result)
 
     @property
-    def already_readme(self):
-        return self.__already_readme
+    def readmed(self):
+        return self.__readmed
 
     def __repr__(self):
-        return '<JwxtXKCenter session={}, already_readme={}, url={}>'.format(
+        return '<JwxtXKCenter session={}, readmed={}, url={}>'.format(
             repr(self.session),
-            repr(self.already_readme),
+            repr(self.readmed),
             repr(self.url)
         )
 
@@ -70,13 +71,10 @@ class Course(ViewState):
         return ret
 
     def select(self):
-        res = self.submit()
-        return Course.find_msg(res.text)
-    
-    @staticmethod
-    def find_msg(html):
-        result = re.search(Config.XK_MSG_PATTERN, html)
-        return result and result.group(1)
+        result = self.submit()
+        course_mistake = find_msg(result.text)
+        if course_mistake:
+            raise CourseError(course_mistake)
 
     def __repr__(self):
         return 'Course(name={}, class_number={}, order_number={})'.format(
@@ -102,6 +100,10 @@ class CourseJar(list):
 
             course_checker['__EVENTTARGET'] = magic
             final = course_checker.submit()
+
+            not_enter_course = find_msg(final.text)
+            if not_enter_course:
+                raise CourseError(not_enter_course)
 
             new_course = Course(session, final)
 
