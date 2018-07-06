@@ -10,5 +10,5 @@ def bsfilter(html, **kwargs):
     return BS.find_all(**kwargs)
 
 def find_msg(html):
-        result = re.search(Config.XK_MSG_PATTERN, html)
+        result = re.search(Config.ALERT_MSG_PATTERN, html)
         return result and result.group(1)

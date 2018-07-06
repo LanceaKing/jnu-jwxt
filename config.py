@@ -23,10 +23,15 @@ class Config(object):
     }
     JWXT_ENCODING = 'gbk'
 
-    VIEWSTATE_PATTERN = re.compile(r"__[A-Z]+")
-    XK_COURSE_PATTERN = re.compile(r"DG(?!Header)[a-zA-Z]+Style")
+    ALERT_MSG_PATTERN = re.compile(r"alert\('(.*?)'\)")
+    VIEWSTATE_PATTERN = {
+        'name': re.compile(r"__[A-Z]+"),
+        'type': 'hidden'
+    }
+    XK_COURSE_PATTERN = {
+        'class': ['DGItemStyle', 'DGAlternatingItemStyle']
+    }
     XK_MAGIC_PATTERN = re.compile(r"dgrdPk\$ctl\d+\$ctl\d+")
-    XK_MSG_PATTERN = re.compile(r"alert\('(.*?)'\)")
 
 
 FORM_DATA = json.load(open(Config.FORM_DATA_PATH, 'rb'))

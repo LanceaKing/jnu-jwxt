@@ -42,9 +42,8 @@ class ViewState(dict):
     @staticmethod
     def extract(html):
         ret = {}
-        tags = bsfilter(html, name='input',attrs={
-            'name': Config.VIEWSTATE_PATTERN,
-            'type': 'hidden'})
+        tags = bsfilter(html, name='input',
+                        attrs=Config.VIEWSTATE_PATTERN)
         for tag in tags:
             ret[tag.get('name')] = tag.get('value')
         return ret
@@ -56,7 +55,7 @@ class ViewState(dict):
             dict.__repr__(self))
 
 
-class JwxtLoginVS(ViewState):
+class LoginVS(ViewState):
     url = Config.JWXT_URLS['login']
     form = FORM_DATA['login']
 
@@ -66,7 +65,7 @@ class JwxtLoginVS(ViewState):
         self['txtFJM'] = validcode
 
 
-class JwxtSearchVS(ViewState):
+class SearchVS(ViewState):
     url = Config.JWXT_URLS['xkcenter']
     form = FORM_DATA['search']
 
@@ -82,11 +81,11 @@ class JwxtSearchVS(ViewState):
         self['txtZjjs'] = teacher
 
 
-class JwxtXKCenterVS(ViewState):
+class XKCenterVS(ViewState):
     url = Config.JWXT_URLS['xkcenter']
     selection = FORM_DATA['xkcenter']
     targets = {
-        JwxtSearchVS: 'btnKkLb'
+        SearchVS: 'btnKkLb'
     }
 
     def go(self, target):
